@@ -1,0 +1,457 @@
+{
+  "name": "GoHighLevel - Automação de Agendamentos",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ghl-appointment-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-appointment",
+      "name": "Webhook - Agendamentos GHL",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "ghl-webhook-appointment"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.type}}",
+              "operation": "equal",
+              "value2": "AppointmentCreate"
+            }
+          ]
+        }
+      },
+      "id": "if-appointment-create",
+      "name": "Novo Agendamento?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.type}}",
+              "operation": "equal",
+              "value2": "AppointmentUpdate"
+            }
+          ]
+        }
+      },
+      "id": "if-appointment-update",
+      "name": "Agendamento Atualizado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "requestMethod": "GET",
+        "url": "https://services.leadconnectorhq.com/contacts/{{$json.appointment.contactId}}",
+        "options": {}
+      },
+      "id": "get-contact-details",
+      "name": "Buscar Detalhes do Contato",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-credentials",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "requestMethod": "POST",
+        "url": "https://services.leadconnectorhq.com/conversations/messages",
+        "jsonParameters": true,
+        "bodyParametersJson": "={\"type\": \"SMS\", \"contactId\": \"{{$json.appointment.contactId}}\", \"message\": \"✅ Agendamento confirmado!\\n\\n📅 Data: {{DateTime.fromISO($json.appointment.startTime).toFormat('dd/MM/yyyy')}}\\n🕐 Horário: {{DateTime.fromISO($json.appointment.startTime).toFormat('HH:mm')}}\\n📍 Local: {{$json.appointment.address || 'Online'}}\\n\\nOlá {{$node[\"get-contact-details\"].json[\"contact\"][\"firstName\"]}}, seu agendamento foi confirmado! Aguardamos você. 😊\"}",
+        "options": {}
+      },
+      "id": "send-confirmation-sms",
+      "name": "Enviar SMS de Confirmação",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-credentials",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "requestMethod": "POST",
+        "url": "https://services.leadconnectorhq.com/conversations/messages",
+        "jsonParameters": true,
+        "bodyParametersJson": "={\"type\": \"Email\", \"contactId\": \"{{$json.appointment.contactId}}\", \"subject\": \"Confirmação de Agendamento - {{DateTime.fromISO($json.appointment.startTime).toFormat('dd/MM/yyyy HH:mm')}}\", \"html\": \"<h2>🎉 Agendamento Confirmado!</h2><p>Olá <strong>{{$node[\"get-contact-details\"].json[\"contact\"][\"firstName\"]}}</strong>,</p><p>Seu agendamento foi confirmado com sucesso!</p><div style='background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;'><h3>📋 Detalhes do Agendamento:</h3><p><strong>📅 Data:</strong> {{DateTime.fromISO($json.appointment.startTime).toFormat('dd/MM/yyyy')}}</p><p><strong>🕐 Horário:</strong> {{DateTime.fromISO($json.appointment.startTime).toFormat('HH:mm')}} às {{DateTime.fromISO($json.appointment.endTime).toFormat('HH:mm')}}</p><p><strong>📍 Local:</strong> {{$json.appointment.address || 'Reunião Online'}}</p><p><strong>📝 Assunto:</strong> {{$json.appointment.title}}</p></div><p>Aguardamos você! Se precisar remarcar ou cancelar, entre em contato conosco.</p><p>Atenciosamente,<br>Equipe de Atendimento</p>\"}",
+        "options": {}
+      },
+      "id": "send-confirmation-email",
+      "name": "Enviar Email de Confirmação",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 100],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-credentials",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "{{ $vars.TELEGRAM_CHAT_ID }}",
+        "text": "📅 *NOVO AGENDAMENTO*\n\n👤 *Cliente:* {{$node[\"get-contact-details\"].json[\"contact\"][\"firstName\"]}} {{$node[\"get-contact-details\"].json[\"contact\"][\"lastName\"]}}\n📧 *Email:* {{$node[\"get-contact-details\"].json[\"contact\"][\"email\"]}}\n📞 *Telefone:* {{$node[\"get-contact-details\"].json[\"contact\"][\"phone\"]}}\n\n📅 *Data:* {{DateTime.fromISO($json.appointment.startTime).toFormat('dd/MM/yyyy')}}\n🕐 *Horário:* {{DateTime.fromISO($json.appointment.startTime).toFormat('HH:mm')}} às {{DateTime.fromISO($json.appointment.endTime).toFormat('HH:mm')}}\n📝 *Assunto:* {{$json.appointment.title}}\n📍 *Local:* {{$json.appointment.address || 'Online'}}\n\nConfirmação automática enviada! ✅",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-appointment-notification",
+      "name": "Notificar Telegram - Novo Agendamento",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1120, 200],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-bot-credentials",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "requestMethod": "POST",
+        "url": "https://services.leadconnectorhq.com/conversations/messages",
+        "jsonParameters": true,
+        "bodyParametersJson": "={\"type\": \"SMS\", \"contactId\": \"{{$json.appointment.contactId}}\", \"message\": \"🔄 Agendamento atualizado!\\n\\n📅 Nova data: {{DateTime.fromISO($json.appointment.startTime).toFormat('dd/MM/yyyy')}}\\n🕐 Novo horário: {{DateTime.fromISO($json.appointment.startTime).toFormat('HH:mm')}}\\n\\nOlá {{$node[\"get-contact-details\"].json[\"contact\"][\"firstName\"]}}, seu agendamento foi alterado. Confirme se está ok! 📞\"}",
+        "options": {}
+      },
+      "id": "send-update-sms",
+      "name": "Enviar SMS de Atualização",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 400],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-credentials",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "{{ $vars.TELEGRAM_CHAT_ID }}",
+        "text": "🔄 *AGENDAMENTO ATUALIZADO*\n\n👤 *Cliente:* {{$node[\"get-contact-details\"].json[\"contact\"][\"firstName\"]}} {{$node[\"get-contact-details\"].json[\"contact\"][\"lastName\"]}}\n📧 *Email:* {{$node[\"get-contact-details\"].json[\"contact\"][\"email\"]}}\n\n📅 *Nova Data:* {{DateTime.fromISO($json.appointment.startTime).toFormat('dd/MM/yyyy')}}\n🕐 *Novo Horário:* {{DateTime.fromISO($json.appointment.startTime).toFormat('HH:mm')}} às {{DateTime.fromISO($json.appointment.endTime).toFormat('HH:mm')}}\n📝 *Assunto:* {{$json.appointment.title}}\n\nNotificação de alteração enviada ao cliente! 📱",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-update-notification",
+      "name": "Notificar Telegram - Agendamento Atualizado",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1120, 400],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-bot-credentials",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 10 * * *"
+            }
+          ]
+        }
+      },
+      "id": "daily-reminder-trigger",
+      "name": "Trigger - Lembretes Diários",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [240, 600]
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "requestMethod": "GET",
+        "url": "https://services.leadconnectorhq.com/appointments/",
+        "qs": {
+          "locationId": "={{$vars.GHL_LOCATION_ID}}",
+          "startDate": "={{DateTime.now().plus({days: 1}).toISODate()}}",
+          "endDate": "={{DateTime.now().plus({days: 1}).toISODate()}}"
+        },
+        "options": {}
+      },
+      "id": "get-tomorrow-appointments",
+      "name": "Buscar Agendamentos de Amanhã",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 600],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-credentials",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "splitIntoItems": true,
+        "fieldToSplitOut": "events",
+        "options": {}
+      },
+      "id": "split-appointments",
+      "name": "Dividir Agendamentos",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [680, 600]
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "requestMethod": "GET",
+        "url": "https://services.leadconnectorhq.com/contacts/{{$json.contactId}}",
+        "options": {}
+      },
+      "id": "get-contact-for-reminder",
+      "name": "Buscar Contato para Lembrete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 600],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-credentials",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "requestMethod": "POST",
+        "url": "https://services.leadconnectorhq.com/conversations/messages",
+        "jsonParameters": true,
+        "bodyParametersJson": "={\"type\": \"SMS\", \"contactId\": \"{{$json.contactId}}\", \"message\": \"⏰ Lembrete: Você tem um agendamento amanhã!\\n\\n📅 Data: {{DateTime.fromISO($node[\"split-appointments\"].json.startTime).toFormat('dd/MM/yyyy')}}\\n🕐 Horário: {{DateTime.fromISO($node[\"split-appointments\"].json.startTime).toFormat('HH:mm')}}\\n📝 Assunto: {{$node[\"split-appointments\"].json.title}}\\n\\nOlá {{$node[\"get-contact-for-reminder\"].json[\"contact\"][\"firstName\"]}}, não esqueça! Aguardamos você. 😊\"}",
+        "options": {}
+      },
+      "id": "send-reminder-sms",
+      "name": "Enviar SMS de Lembrete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 600],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-credentials",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\": \"success\", \"message\": \"Agendamento processado com sucesso\", \"timestamp\": \"{{$now}}\"}",
+        "options": {}
+      },
+      "id": "webhook-response",
+      "name": "Resposta Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - Agendamentos GHL": {
+      "main": [
+        [
+          {
+            "node": "Novo Agendamento?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Agendamento Atualizado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Novo Agendamento?": {
+      "main": [
+        [
+          {
+            "node": "Buscar Detalhes do Contato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agendamento Atualizado?": {
+      "main": [
+        [
+          {
+            "node": "Buscar Detalhes do Contato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Detalhes do Contato": {
+      "main": [
+        [
+          {
+            "node": "Enviar Email de Confirmação",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Enviar SMS de Confirmação",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Enviar SMS de Atualização",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar SMS de Confirmação": {
+      "main": [
+        [
+          {
+            "node": "Notificar Telegram - Novo Agendamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Email de Confirmação": {
+      "main": [
+        [
+          {
+            "node": "Notificar Telegram - Novo Agendamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notificar Telegram - Novo Agendamento": {
+      "main": [
+        [
+          {
+            "node": "Resposta Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar SMS de Atualização": {
+      "main": [
+        [
+          {
+            "node": "Notificar Telegram - Agendamento Atualizado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notificar Telegram - Agendamento Atualizado": {
+      "main": [
+        [
+          {
+            "node": "Resposta Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger - Lembretes Diários": {
+      "main": [
+        [
+          {
+            "node": "Buscar Agendamentos de Amanhã",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Agendamentos de Amanhã": {
+      "main": [
+        [
+          {
+            "node": "Dividir Agendamentos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dividir Agendamentos": {
+      "main": [
+        [
+          {
+            "node": "Buscar Contato para Lembrete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Contato para Lembrete": {
+      "main": [
+        [
+          {
+            "node": "Enviar SMS de Lembrete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-09-15T11:00:00.000Z",
+  "id": "ghl-appointment-automation",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": [
+    {
+      "createdAt": "2025-09-15T11:00:00.000Z",
+      "id": "gohighlevel",
+      "name": "gohighlevel",
+      "updatedAt": "2025-09-15T11:00:00.000Z"
+    }
+  ],
+  "updatedAt": "2025-09-15T11:00:00.000Z",
+  "versionId": "1"
+}

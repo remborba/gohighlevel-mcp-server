@@ -1,0 +1,453 @@
+{
+  "name": "GoHighLevel - Pipeline de Oportunidades (Telegram)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ghl-opportunity-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-opportunity",
+      "name": "Webhook - Oportunidades GHL",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "ghl-webhook-opportunity"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.type}}",
+              "operation": "equal",
+              "value2": "OpportunityStageUpdate"
+            }
+          ]
+        }
+      },
+      "id": "if-stage-update",
+      "name": "Mudança de Estágio?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.opportunity.pipelineStageId}}",
+              "operation": "equal",
+              "value2": "won_stage_id"
+            }
+          ]
+        }
+      },
+      "id": "if-opportunity-won",
+      "name": "Oportunidade Ganha?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [680, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.opportunity.pipelineStageId}}",
+              "operation": "equal",
+              "value2": "lost_stage_id"
+            }
+          ]
+        }
+      },
+      "id": "if-opportunity-lost",
+      "name": "Oportunidade Perdida?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "requestMethod": "GET",
+        "url": "https://services.leadconnectorhq.com/contacts/{{$json.opportunity.contactId}}",
+        "options": {}
+      },
+      "id": "get-contact-info",
+      "name": "Buscar Info do Contato",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 100],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-credentials",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "requestMethod": "POST",
+        "url": "https://services.leadconnectorhq.com/conversations/messages",
+        "jsonParameters": true,
+        "bodyParametersJson": "={\"type\": \"SMS\", \"contactId\": \"{{$json.opportunity.contactId}}\", \"message\": \"🎉 Parabéns {{$node[\"get-contact-info\"].json[\"contact\"][\"firstName\"]}}! Sua proposta foi aprovada. Em breve entraremos em contato para os próximos passos!\"}",
+        "options": {}
+      },
+      "id": "send-win-message",
+      "name": "Enviar Mensagem - Oportunidade Ganha",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 100],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-credentials",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "requestMethod": "POST",
+        "url": "https://services.leadconnectorhq.com/contacts/{{$json.opportunity.contactId}}/tags",
+        "jsonParameters": true,
+        "bodyParametersJson": "={\"tags\": [\"cliente-convertido\", \"pipeline-won\"]}",
+        "options": {}
+      },
+      "id": "add-win-tags",
+      "name": "Adicionar Tags - Cliente Convertido",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-credentials",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "{{ $vars.TELEGRAM_CHAT_ID }}",
+        "text": "🎉 *VENDA FECHADA!* 🎉\n\n💰 *Valor:* R$ {{$json.opportunity.monetaryValue}}\n👤 *Cliente:* {{$node[\"get-contact-info\"].json[\"contact\"][\"firstName\"]}} {{$node[\"get-contact-info\"].json[\"contact\"][\"lastName\"]}}\n📧 *Email:* {{$node[\"get-contact-info\"].json[\"contact\"][\"email\"]}}\n📞 *Telefone:* {{$node[\"get-contact-info\"].json[\"contact\"][\"phone\"]}}\n🏆 *Oportunidade:* {{$json.opportunity.title}}\n📅 *Data:* {{$now}}\n\nParabéns equipe! 🚀",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-win-notification",
+      "name": "Notificar Telegram - Venda Fechada",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1340, 150],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-bot-credentials",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "requestMethod": "POST",
+        "url": "https://services.leadconnectorhq.com/contacts/{{$json.opportunity.contactId}}/tags",
+        "jsonParameters": true,
+        "bodyParametersJson": "={\"tags\": [\"oportunidade-perdida\", \"follow-up-futuro\"]}",
+        "options": {}
+      },
+      "id": "add-lost-tags",
+      "name": "Adicionar Tags - Oportunidade Perdida",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 400],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-credentials",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "{{ $vars.TELEGRAM_CHAT_ID }}",
+        "text": "❌ *Oportunidade Perdida*\n\n👤 *Contato:* {{$node[\"get-contact-info\"].json[\"contact\"][\"firstName\"]}} {{$node[\"get-contact-info\"].json[\"contact\"][\"lastName\"]}}\n💰 *Valor:* R$ {{$json.opportunity.monetaryValue}}\n🏷️ *Oportunidade:* {{$json.opportunity.title}}\n📅 *Data:* {{$now}}\n\nContato adicionado à lista de follow-up futuro.",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-lost-notification",
+      "name": "Notificar Telegram - Oportunidade Perdida",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1340, 400],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-bot-credentials",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\": \"success\", \"message\": \"Oportunidade processada com sucesso\", \"timestamp\": \"{{$now}}\"}",
+        "options": {}
+      },
+      "id": "webhook-response",
+      "name": "Resposta Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "weekly-report-trigger",
+      "name": "Trigger - Relatório Semanal",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [240, 600]
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "requestMethod": "GET",
+        "url": "https://services.leadconnectorhq.com/opportunities/",
+        "qs": {
+          "locationId": "={{$vars.GHL_LOCATION_ID}}",
+          "startDate": "={{DateTime.now().minus({days: 7}).toISODate()}}",
+          "endDate": "={{DateTime.now().toISODate()}}"
+        },
+        "options": {}
+      },
+      "id": "get-weekly-opportunities",
+      "name": "Buscar Oportunidades da Semana",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 600],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-credentials",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processar dados das oportunidades\nconst opportunities = $input.all()[0].json.opportunities || [];\n\nconst stats = {\n  total: opportunities.length,\n  won: opportunities.filter(o => o.status === 'won').length,\n  lost: opportunities.filter(o => o.status === 'lost').length,\n  open: opportunities.filter(o => o.status === 'open').length,\n  totalValue: opportunities.reduce((sum, o) => sum + (parseFloat(o.monetaryValue) || 0), 0),\n  wonValue: opportunities.filter(o => o.status === 'won').reduce((sum, o) => sum + (parseFloat(o.monetaryValue) || 0), 0)\n};\n\nstats.winRate = stats.total > 0 ? ((stats.won / stats.total) * 100).toFixed(1) : 0;\n\nreturn [{ json: stats }];"
+      },
+      "id": "process-weekly-stats",
+      "name": "Processar Estatísticas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 600]
+    },
+    {
+      "parameters": {
+        "chatId": "{{ $vars.TELEGRAM_CHAT_ID }}",
+        "text": "📊 *RELATÓRIO SEMANAL DE VENDAS*\n\n🎯 *Total de Oportunidades:* {{$json.total}}\n✅ *Ganhas:* {{$json.won}}\n❌ *Perdidas:* {{$json.lost}}\n🔄 *Em Andamento:* {{$json.open}}\n\n💰 *Valor Total:* R$ {{$json.totalValue}}\n💵 *Valor Fechado:* R$ {{$json.wonValue}}\n📈 *Taxa de Conversão:* {{$json.winRate}}%\n\n📅 *Período:* {{DateTime.now().minus({days: 7}).toFormat('dd/MM')}} - {{DateTime.now().toFormat('dd/MM/yyyy')}}\n\nContinuem o excelente trabalho! 🚀",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-weekly-report",
+      "name": "Relatório Semanal - Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [900, 600],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-bot-credentials",
+          "name": "Telegram Bot API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Oportunidades GHL": {
+      "main": [
+        [
+          {
+            "node": "Mudança de Estágio?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mudança de Estágio?": {
+      "main": [
+        [
+          {
+            "node": "Oportunidade Ganha?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Oportunidade Perdida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Oportunidade Ganha?": {
+      "main": [
+        [
+          {
+            "node": "Buscar Info do Contato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Oportunidade Perdida?": {
+      "main": [
+        [
+          {
+            "node": "Buscar Info do Contato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Info do Contato": {
+      "main": [
+        [
+          {
+            "node": "Enviar Mensagem - Oportunidade Ganha",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Adicionar Tags - Cliente Convertido",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Adicionar Tags - Oportunidade Perdida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Mensagem - Oportunidade Ganha": {
+      "main": [
+        [
+          {
+            "node": "Notificar Telegram - Venda Fechada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Adicionar Tags - Cliente Convertido": {
+      "main": [
+        [
+          {
+            "node": "Notificar Telegram - Venda Fechada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Adicionar Tags - Oportunidade Perdida": {
+      "main": [
+        [
+          {
+            "node": "Notificar Telegram - Oportunidade Perdida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notificar Telegram - Venda Fechada": {
+      "main": [
+        [
+          {
+            "node": "Resposta Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notificar Telegram - Oportunidade Perdida": {
+      "main": [
+        [
+          {
+            "node": "Resposta Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger - Relatório Semanal": {
+      "main": [
+        [
+          {
+            "node": "Buscar Oportunidades da Semana",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Oportunidades da Semana": {
+      "main": [
+        [
+          {
+            "node": "Processar Estatísticas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processar Estatísticas": {
+      "main": [
+        [
+          {
+            "node": "Relatório Semanal - Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-09-15T10:30:00.000Z",
+  "id": "ghl-opportunity-pipeline-telegram",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": [
+    {
+      "createdAt": "2025-09-15T10:30:00.000Z",
+      "id": "gohighlevel",
+      "name": "gohighlevel",
+      "updatedAt": "2025-09-15T10:30:00.000Z"
+    }
+  ],
+  "updatedAt": "2025-09-15T10:30:00.000Z",
+  "versionId": "1"
+}

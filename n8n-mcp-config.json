@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "gohighlevel": {
+      "command": "python",
+      "args": ["E:\\ClaudeCode\\Projetos\\gohighlevel-mcp\\mcp_n8n_server.py"],
+      "env": {
+        "GHL_API_KEY": "pit-87ae2cce-9458-49c3-8aaa-22a99121217f",
+        "GHL_LOCATION_ID": "bkkiqPykHcyJl2BDjSo8"
+      }
+    }
+  }
+}

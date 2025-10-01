@@ -1,0 +1,288 @@
+{
+  "name": "GoHighLevel - Gestão de Contatos (Telegram)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ghl-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook - GHL Events",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "ghl-webhook-contact"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.type}}",
+              "operation": "equal",
+              "value2": "ContactCreate"
+            }
+          ]
+        }
+      },
+      "id": "if-contact-create",
+      "name": "É Novo Contato?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.type}}",
+              "operation": "equal", 
+              "value2": "ContactUpdate"
+            }
+          ]
+        }
+      },
+      "id": "if-contact-update",
+      "name": "É Atualização?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 500]
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "requestMethod": "POST",
+        "url": "https://services.leadconnectorhq.com/contacts/{{$json.contactId}}/tags",
+        "jsonParameters": true,
+        "bodyParametersJson": "={\"tags\": [\"novo-contato\", \"via-webhook\"]}",
+        "options": {}
+      },
+      "id": "add-new-contact-tag",
+      "name": "Adicionar Tags - Novo Contato",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-credentials",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "requestMethod": "GET",
+        "url": "https://services.leadconnectorhq.com/contacts/{{$json.contactId}}",
+        "options": {}
+      },
+      "id": "get-contact-details",
+      "name": "Buscar Detalhes do Contato",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 400],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-credentials",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "{{ $vars.TELEGRAM_CHAT_ID }}",
+        "text": "🎉 *Novo contato criado no GoHighLevel!*\n\n*Nome:* {{$node[\"get-contact-details\"].json[\"contact\"][\"firstName\"]}} {{$node[\"get-contact-details\"].json[\"contact\"][\"lastName\"]}}\n*Email:* {{$node[\"get-contact-details\"].json[\"contact\"][\"email\"]}}\n*Telefone:* {{$node[\"get-contact-details\"].json[\"contact\"][\"phone\"]}}\n*Tags:* {{$node[\"get-contact-details\"].json[\"contact\"][\"tags\"].join(\", \")}}\n\nContato adicionado automaticamente às tags: novo-contato, via-webhook",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-notification-new",
+      "name": "Notificar Telegram - Novo Contato",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [900, 200],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-bot-credentials",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "{{ $vars.TELEGRAM_CHAT_ID }}",
+        "text": "🔄 *Contato atualizado no GoHighLevel*\n\n*Nome:* {{$node[\"get-contact-details\"].json[\"contact\"][\"firstName\"]}} {{$node[\"get-contact-details\"].json[\"contact\"][\"lastName\"]}}\n*Email:* {{$node[\"get-contact-details\"].json[\"contact\"][\"email\"]}}\n*Telefone:* {{$node[\"get-contact-details\"].json[\"contact\"][\"phone\"]}}\n*Tags:* {{$node[\"get-contact-details\"].json[\"contact\"][\"tags\"].join(\", \")}}\n\nContato foi atualizado via webhook",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-notification-update",
+      "name": "Notificar Telegram - Contato Atualizado",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [900, 500],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-bot-credentials",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\": \"success\", \"message\": \"Webhook processado com sucesso\", \"timestamp\": \"{{$now}}\"}",
+        "options": {}
+      },
+      "id": "webhook-response",
+      "name": "Resposta Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "requestMethod": "POST",
+        "url": "https://services.leadconnectorhq.com/conversations/messages",
+        "jsonParameters": true,
+        "bodyParametersJson": "={\"type\": \"SMS\", \"contactId\": \"{{$json.contactId}}\", \"message\": \"Olá {{$node[\"get-contact-details\"].json[\"contact\"][\"firstName\"]}}! Seja bem-vindo(a) à nossa empresa. Em breve entraremos em contato com você! 😊\"}",
+        "options": {}
+      },
+      "id": "send-welcome-message",
+      "name": "Enviar Mensagem de Boas-Vindas",
+      "type": "n8n-nodes-base.httpRequest", 
+      "typeVersion": 4.1,
+      "position": [680, 100],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-credentials",
+          "name": "GoHighLevel API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - GHL Events": {
+      "main": [
+        [
+          {
+            "node": "É Novo Contato?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "É Atualização?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É Novo Contato?": {
+      "main": [
+        [
+          {
+            "node": "Enviar Mensagem de Boas-Vindas",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Adicionar Tags - Novo Contato",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Buscar Detalhes do Contato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É Atualização?": {
+      "main": [
+        [
+          {
+            "node": "Buscar Detalhes do Contato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Adicionar Tags - Novo Contato": {
+      "main": [
+        [
+          {
+            "node": "Notificar Telegram - Novo Contato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Detalhes do Contato": {
+      "main": [
+        [
+          {
+            "node": "Notificar Telegram - Contato Atualizado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notificar Telegram - Novo Contato": {
+      "main": [
+        [
+          {
+            "node": "Resposta Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notificar Telegram - Contato Atualizado": {
+      "main": [
+        [
+          {
+            "node": "Resposta Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Mensagem de Boas-Vindas": {
+      "main": [
+        [
+          {
+            "node": "Notificar Telegram - Novo Contato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-09-15T10:00:00.000Z",
+  "id": "ghl-contact-management-telegram",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": [
+    {
+      "createdAt": "2025-09-15T10:00:00.000Z",
+      "id": "gohighlevel",
+      "name": "gohighlevel",
+      "updatedAt": "2025-09-15T10:00:00.000Z"
+    }
+  ],
+  "updatedAt": "2025-09-15T10:00:00.000Z",
+  "versionId": "1"
+}
