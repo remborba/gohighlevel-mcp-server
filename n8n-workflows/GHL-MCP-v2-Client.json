@@ -1,0 +1,68 @@
+{
+  "name": "GoHighLevel MCP v2 - Client Template",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"credentials\": {\n    \"apiKey\": \"{{ $env.GHL_API_KEY }}\",\n    \"locationId\": \"{{ $env.GHL_LOCATION_ID }}\"\n  },\n  \"method\": \"create_contact\",\n  \"params\": {\n    \"firstName\": \"João\",\n    \"lastName\": \"Silva\",\n    \"email\": \"joao@teste.com\",\n    \"phone\": \"+5511999999999\"\n  }\n}",
+        "options": {}
+      },
+      "id": "setup-credentials",
+      "name": "Setup Credentials",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [460, 300],
+      "notes": "Configure suas credenciais GHL nas variáveis de ambiente do n8n:\nGHL_API_KEY\nGHL_LOCATION_ID"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mcp-github.va1qz0.easypanel.host/mcp",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "ghl-mcp-call",
+      "name": "GHL MCP Server",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Setup Credentials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Setup Credentials": {
+      "main": [
+        [
+          {
+            "node": "GHL MCP Server",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

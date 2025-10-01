@@ -1,0 +1,44 @@
+{
+  "name": "GoHighLevel MCP - Client",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mcp-github.va1qz0.easypanel.host/mcp",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"method\": \"{{ $json.method }}\",\n  \"params\": {{ $json.params }}\n}",
+        "options": {}
+      },
+      "id": "ghl-mcp-call",
+      "name": "GHL MCP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 300]
+    }
+  ],
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "GHL MCP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
